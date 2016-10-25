@@ -5,6 +5,9 @@
 #include <SawTooth.h>
 Serial pc(USBTX, USBRX);
 
+//ADC pins
+AnalogIn tempReadA(p15);
+AnalogIn tempReadB(p16);
 // DAC pin18
 //AnalogOut aout(p18);
 
@@ -78,5 +81,9 @@ int main() {
     //led4.flash(3);
     //pc.printf("testing\n");
     //wait(1.0f);
+    // print the percentage and 16 bit normalized values
+    printf("percentage: %3.3f%%\n", tempReadA.read()*100.0f);
+    printf("percentage: %3.3f%%\n", tempReadB.read()*100.0f);
+    wait(1.0f);
   }
 }

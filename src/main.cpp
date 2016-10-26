@@ -85,9 +85,9 @@ int main() {
     //led4.flash(3);
     //pc.printf("testing\n");
     //wait(1.0f);
-    // print the percentage and 16 bit normalized values
+    // print the temperatures
+    printf("Tube Sealer Temperature A: %3.3f'C\n", readRTD(tempReadA.read()));
     printf("Tube Sealer Temperature B: %3.3f'C\n", readRTD(tempReadB.read()));
-    //printf("percentage: %3.3f%%\n", tempReadB.read()*100.0f);
     wait(1.0f);
   }
 }

@@ -67,7 +67,11 @@ void readPC() {
   //led1 = !led1;
 }
 
-
+// Function to convert ADC reading to actual temp reading
+double theta[3] = {1050.7, -4826, 5481.5};
+double readRTD(double x) {
+  return theta[0] + x*theta[1] + x*x*theta[2];
+}
 
 int main() {
   led2 = 1;
@@ -82,8 +86,8 @@ int main() {
     //pc.printf("testing\n");
     //wait(1.0f);
     // print the percentage and 16 bit normalized values
-    printf("percentage: %3.3f%%\n", tempReadA.read()*100.0f);
-    printf("percentage: %3.3f%%\n", tempReadB.read()*100.0f);
+    printf("Tube Sealer Temperature B: %3.3f'C\n", readRTD(tempReadB.read()));
+    //printf("percentage: %3.3f%%\n", tempReadB.read()*100.0f);
     wait(1.0f);
   }
 }

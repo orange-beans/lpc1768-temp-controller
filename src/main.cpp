@@ -10,8 +10,8 @@ Serial pc(USBTX, USBRX);
 //****************************************************************************/
 // Defines PID parameters
 //****************************************************************************/
-#define RATE  0.5
-#define Kc    1.0
+#define RATE  0.1
+#define Kc    0.65
 #define Ti    0.001
 #define Td    0.0
 
@@ -20,6 +20,11 @@ PID controllerB(Kc, Ti, Td, RATE);
 //ADC pins
 AnalogIn tempReadA(p15);
 AnalogIn tempReadB(p16);
+
+//PWM pins
+PwmOut heaterA(p21);
+PwmOut heaterB(p22);
+
 // DAC pin18
 //AnalogOut aout(p18);
 
@@ -37,6 +42,8 @@ Flasher led4(LED4, 2);
 
 void readPC() {
   // Note: you need to actually read from the serial to clear the RX interrupt
+  // Example command:
+  // {"setPointA":20, "setPointB":40, "kc":0.15, "ti":0.0005, "td":0.0}
   string holder;
   cJSON *json;
   // parameters list
@@ -76,11 +83,14 @@ double readRTD(double x) {
 }
 
 int main() {
-  double tempA, tempB;
+  double tempA, tempB, outA, outB;
   //double read_bufferA[10] = {0,0,0,0,0,0,0,0,0,0};
   //double read_bufferB[10] = {0,0,0,0,0,0,0,0,0,0};
   double sumA = 0, sumB = 0;
   pc.attach(&readPC);
+
+  heaterA.period_ms(50);
+  heaterB.period_ms(50);
 
   // Init PIC controllers
   controllerA.setInputLimits(0.0, 350.0);
@@ -88,6 +98,12 @@ int main() {
   controllerA.setSetPoint(20);
   //controllerA.setBias(0.0);
   controllerA.setMode(1);
+
+  controllerB.setInputLimits(0.0, 350.0);
+  controllerB.setOutputLimits(0.0, 1.0);
+  controllerB.setSetPoint(20);
+  controllerA.setBias(0.5);
+  controllerB.setMode(1);
 
   while(1) {
     // print the temperatures
@@ -97,14 +113,23 @@ int main() {
     for (int i=0; i<10; i++) {
       sumA += tempReadA.read();
       sumB += tempReadB.read();
+
     }
     tempA = readRTD(sumA/10);
     tempB = readRTD(sumB/10);
     //printf("Tube Sealer Temperature A: %3.4f'C\n", temp*3.3);
     //printf("normalized: 0x%04X \n", tempReadA.read_u16());
     controllerA.setProcessValue(tempA);
-    printf("Tube Sealer Temperature A: %3.1f'C\n", tempA);
-    printf("Compute PWM %3.3f\n", controllerA.compute());
+    controllerB.setProcessValue(tempB);
+    outA = controllerA.compute();
+    outB = controllerB.compute();
+
+    // Update Heaters PWM output
+    heaterA.write(outA);
+    heaterB.write(outB);
+
+    printf("Temperature A: %3.1f'C; B: %3.1f'C\n", tempA, tempB);
+    printf("Compute PWM A: %3.3f; B: %3.3f\n", outA, outB);
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));
     wait(RATE);
   }

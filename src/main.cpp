@@ -13,6 +13,7 @@ Adafruit_ADS1015 ads(&i2c);
 //****************************************************************************/
 // Defines PID parameters
 //****************************************************************************/
+#define SAMPLES 5
 #define RATE  0.2
 #define Kc    0.65
 #define Ti    0.001
@@ -43,14 +44,15 @@ SawTooth sawTooth(p18, 0.5);
 Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
+double setPointA, setPointB, kc, ti, td;
+
 void readPC() {
   // Note: you need to actually read from the serial to clear the RX interrupt
   // Example command:
-  // {"setPointA":20, "setPointB":40, "kc":0.15, "ti":0.0005, "td":0.0}
+  // {"setPointA":20, "setPointB":45, "kc":0.25, "ti":0.002, "td":0.0}
   string holder;
   cJSON *json;
   // parameters list
-  double setPointA, setPointB, kc, ti, td;
 
   char temp;
   while(temp != '\n') {
@@ -87,8 +89,8 @@ double readRTD(double x) {
 
 int main() {
   double tempA, tempB, outA, outB;
-  //double read_bufferA[10] = {0,0,0,0,0,0,0,0,0,0};
-  //double read_bufferB[10] = {0,0,0,0,0,0,0,0,0,0};
+  double read_bufferA[SAMPLES] = {25};
+  double read_bufferB[5] = {25};
   double sumA = 0, sumB = 0;
   long int reading = 0;
 
@@ -108,21 +110,47 @@ int main() {
   controllerB.setInputLimits(0.0, 350.0);
   controllerB.setOutputLimits(0.0, 1.0);
   controllerB.setSetPoint(20);
-  controllerA.setBias(0.5);
-  controllerB.setMode(1);
+  controllerA.setBias(0);
+  controllerB.setMode(AUTO_MODE);
 
   while(1) {
-    // print the temperatures
-    // Read 10 times then average
     sumA = 0;
     sumB = 0;
+    // Moving average
+    for (int i=SAMPLES - 1; i>0; i--) {
+      read_bufferA[i] = read_bufferA[i-1];
+      read_bufferB[i] = read_bufferB[i-1];
+    }
+
+    read_bufferA[0] = readRTD(tempReadA.read());
+    read_bufferB[0] = readRTD(tempReadB.read());
+
+    for (int i=0; i<SAMPLES; i++) {
+      sumA += read_bufferA[i];
+      sumB += read_bufferB[i];
+    }
+
+    tempA = sumA/SAMPLES;
+    tempB = sumB/SAMPLES;
+
+    if(tempA >= setPointA) {
+      controllerA.reset();
+    }
+
+    if(tempB >= setPointB) {
+      controllerB.reset();
+    }
+
+    // print the temperatures
+    // Read 10 times then average
     for (int i=0; i<10; i++) {
-      sumA += tempReadA.read();
-      sumB += tempReadB.read();
+      //sumA += tempReadA.read();
+      //sumB += tempReadB.read();
 
     }
-    tempA = readRTD(sumA/10);
-    tempB = readRTD(sumB/10);
+    //tempA = readRTD(sumA/10);
+    //tempB = readRTD(sumB/10);
+
     //printf("Tube Sealer Temperature A: %3.4f'C\n", temp*3.3);
     //printf("normalized: 0x%04X \n", tempReadA.read_u16());
     controllerA.setProcessValue(tempA);

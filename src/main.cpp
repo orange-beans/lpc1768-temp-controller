@@ -18,6 +18,8 @@ Adafruit_ADS1015 ads(&i2c);
 #define Kc    0.65
 #define Ti    0.001
 #define Td    0.0
+#define HIGH_FACTOR 3
+#define LOW_FACTOR 2
 
 PID controllerA(Kc, Ti, Td, RATE);
 PID controllerB(Kc, Ti, Td, RATE);
@@ -49,7 +51,7 @@ double setPointA, setPointB, kc, ti, td;
 void readPC() {
   // Note: you need to actually read from the serial to clear the RX interrupt
   // Example command:
-  // {"setPointA":20, "setPointB":75, "kc":0.15, "ti":0.0005, "td":0.0}
+  // {"setPointA":20, "setPointB":45, "kc":0.08, "ti":0.0005, "td":0.0}
   string holder;
   cJSON *json;
   // parameters list
@@ -111,7 +113,7 @@ int main() {
   controllerB.setOutputLimits(0.0, 1.0);
   controllerB.setSetPoint(20);
   controllerA.setBias(0);
-  controllerB.setMode(AUTO_MODE);
+  controllerB.setMode(MANUAL_MODE);
 
   while(1) {
     sumA = 0;
@@ -133,14 +135,6 @@ int main() {
     tempA = sumA/SAMPLES;
     tempB = sumB/SAMPLES;
 
-    if(tempA >= setPointA) {
-      //controllerA.reset();
-    }
-
-    if(tempB >= setPointB) {
-      //controllerB.reset();
-    }
-
     // print the temperatures
     // Read 10 times then average
     for (int i=0; i<10; i++) {
@@ -157,6 +151,22 @@ int main() {
     controllerB.setProcessValue(tempB);
     outA = controllerA.compute();
     outB = controllerB.compute();
+
+    if(tempA >= setPointA) {
+      outA = outA/HIGH_FACTOR;
+    }
+
+    if((setPointA - tempA) <= 0.6) {
+      outA = outA/LOW_FACTOR;
+    }
+
+    if(tempB >= setPointB) {
+      outB = outB/HIGH_FACTOR;
+    }
+
+    if((setPointB - tempB) <= 0.6) {
+      outB = outB/LOW_FACTOR;
+    }
 
     // Update Heaters PWM output
     heaterA.write(outA);

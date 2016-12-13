@@ -49,7 +49,7 @@ double setPointA, setPointB, kc, ti, td;
 void readPC() {
   // Note: you need to actually read from the serial to clear the RX interrupt
   // Example command:
-  // {"setPointA":20, "setPointB":45, "kc":0.25, "ti":0.002, "td":0.0}
+  // {"setPointA":20, "setPointB":75, "kc":0.15, "ti":0.0005, "td":0.0}
   string holder;
   cJSON *json;
   // parameters list
@@ -134,11 +134,11 @@ int main() {
     tempB = sumB/SAMPLES;
 
     if(tempA >= setPointA) {
-      controllerA.reset();
+      //controllerA.reset();
     }
 
     if(tempB >= setPointB) {
-      controllerB.reset();
+      //controllerB.reset();
     }
 
     // print the temperatures

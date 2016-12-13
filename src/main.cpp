@@ -4,13 +4,16 @@
 #include <Flasher.h>
 #include <SawTooth.h>
 #include <PID.h>
+#include <Adafruit_ADS1015.h>
 
+I2C i2c(p28, p27);
 Serial pc(USBTX, USBRX);
+Adafruit_ADS1015 ads(&i2c);
 
 //****************************************************************************/
 // Defines PID parameters
 //****************************************************************************/
-#define RATE  0.1
+#define RATE  0.2
 #define Kc    0.65
 #define Ti    0.001
 #define Td    0.0
@@ -87,6 +90,9 @@ int main() {
   //double read_bufferA[10] = {0,0,0,0,0,0,0,0,0,0};
   //double read_bufferB[10] = {0,0,0,0,0,0,0,0,0,0};
   double sumA = 0, sumB = 0;
+  long int reading = 0;
+
+  ads.setGain(GAIN_TWO);
   pc.attach(&readPC);
 
   heaterA.period_ms(50);
@@ -128,6 +134,11 @@ int main() {
     heaterA.write(outA);
     heaterB.write(outB);
 
+    // Try ADS1015
+
+    //reading = ads.readADC_SingleEnded(0);
+    //reading = ads.readADC_Differential_2_3();
+    //printf("reading: %d\r\n", reading); // print reading
     printf("Temperature A: %3.1f'C; B: %3.1f'C\n", tempA, tempB);
     printf("Compute PWM A: %3.3f; B: %3.3f\n", outA, outB);
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));

@@ -51,7 +51,7 @@ double setPointA, setPointB, kc, ti, td;
 void readPC() {
   // Note: you need to actually read from the serial to clear the RX interrupt
   // Example command:
-  // {"setPointA":20, "setPointB":45, "kc":0.08, "ti":0.0005, "td":0.0}
+  // {"setPointA":20, "setPointB":45, "kc":0.08, "ti":0.005, "td":0.0}
   string holder;
   cJSON *json;
   // parameters list
@@ -177,8 +177,8 @@ int main() {
     //reading = ads.readADC_SingleEnded(0);
     //reading = ads.readADC_Differential_2_3();
     //printf("reading: %d\r\n", reading); // print reading
-    printf("Temperature A: %3.1f'C; B: %3.1f'C\n", tempA, tempB);
-    printf("Compute PWM A: %3.3f; B: %3.3f\n", outA, outB);
+    printf("HeaterA: Temp: %3.1f 'C, PWM: %3.3f %%; HeaterB: Temp: %3.1f 'C, PWM: %3.3f %%;\n", tempA, outA*100, tempB, outB*100);
+    //printf("Compute PWM A: %3.3f; B: %3.3f\n", outA, outB);
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));
     wait(RATE);
   }

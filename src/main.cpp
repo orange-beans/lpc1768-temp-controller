@@ -28,8 +28,10 @@ AnalogIn tempReadA(p15);
 AnalogIn tempReadB(p16);
 
 //PWM pins
-PwmOut heaterA(p21);
-PwmOut heaterB(p22);
+// PwmOut heaterA(p21);
+// PwmOut heaterB(p22);
+PwmOut heaterA(p22);
+PwmOut heaterB(p21);
 
 // DAC pin18
 //AnalogOut aout(p18);

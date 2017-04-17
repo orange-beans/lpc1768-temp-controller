@@ -4,7 +4,16 @@
 #include <Flasher.h>
 #include <SawTooth.h>
 #include <PID.h>
+#include <WS2812.h>
+#include <PixelArray.h>
 #include <Adafruit_ADS1015.h>
+
+#define WS2812_BUF 150
+#define NUM_COLORS 6
+#define NUM_LEDS_PER_COLOR 10
+
+PixelArray px(WS2812_BUF);
+WS2812 ws(p21, WS2812_BUF, 0, 5, 5, 0);
 
 I2C i2c(p28, p27);
 Serial pc(USBTX, USBRX);
@@ -183,5 +192,9 @@ int main() {
     //printf("Compute PWM A: %3.3f; B: %3.3f\n", outA, outB);
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));
     wait(RATE);
+
+    // Test WS2812
+    int colorbuf[NUM_COLORS] = {0x2f0000,0x2f2f00,0x002f00,0x002f2f,0x00002f,0x2f002f};
+    ws.write(colorbuf);
   }
 }

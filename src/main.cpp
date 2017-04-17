@@ -8,12 +8,22 @@
 #include <PixelArray.h>
 #include <Adafruit_ADS1015.h>
 
-#define WS2812_BUF 150
+#define WS2812_BUF 6
 #define NUM_COLORS 6
 #define NUM_LEDS_PER_COLOR 10
 
 PixelArray px(WS2812_BUF);
-WS2812 ws(p21, WS2812_BUF, 0, 5, 5, 0);
+
+// NOTE: timer is critical for different platforms:
+// K64F, KL46Z: 0, 5, 5, 0
+// LPC1768: 3, 11, 10, 11
+// NUCLEO_F401RE: 3, 12, 9, 12
+// NUCELO_F746ZG: 32, 105, 70, 123
+
+WS2812 ws(p5, 1, 2, 11, 10, 11);
+//WS2812 ws(p11, 1);
+//int colorbuf[4] = { 0x00000033, 0x0000FFFF, 0x0000FF00, 0x00001199}; //blue, orange, green, red
+int colorbuf[NUM_COLORS] = {0xff0000ff,0xffff0000,0xff00ff00,0xffffff00,0xffff8000,0xfff00fff};
 
 I2C i2c(p28, p27);
 Serial pc(USBTX, USBRX);
@@ -194,7 +204,18 @@ int main() {
     wait(RATE);
 
     // Test WS2812
-    int colorbuf[NUM_COLORS] = {0x2f0000,0x2f2f00,0x002f00,0x002f2f,0x00002f,0x2f002f};
-    ws.write(colorbuf);
+    //ws.useII(WS2812::GLOBAL);
+    //ws.setII(0xAA);
+    ws.write(&colorbuf[0]);
+    wait(RATE);
+    ws.write(&colorbuf[1]);
+    wait(RATE);
+    ws.write(&colorbuf[2]);
+    wait(RATE);
+    ws.write(&colorbuf[3]);
+    wait(RATE);
+    ws.write(&colorbuf[4]);
+    wait(RATE);
+    ws.write(&colorbuf[5]);
   }
 }

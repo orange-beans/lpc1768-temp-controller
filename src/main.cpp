@@ -25,9 +25,10 @@ WS2812 ws(p5, 1, 2, 11, 10, 11);
 //int colorbuf[4] = { 0x00000033, 0x0000FFFF, 0x0000FF00, 0x00001199}; //blue, orange, green, red
 int colorbuf[NUM_COLORS] = {0xff0000ff,0xffff0000,0xff00ff00,0xffffff00,0xffff8000,0xfff00fff};
 
-I2C i2c(p28, p27);
+//I2C i2c(p28, p27);
 Serial pc(USBTX, USBRX);
-Adafruit_ADS1015 ads(&i2c);
+Serial dev(p28, p27, 9600);
+//Adafruit_ADS1015 ads(&i2c);
 
 //****************************************************************************/
 // Defines PID parameters
@@ -104,6 +105,46 @@ void readPC() {
   printf("%s\n", holder.c_str());
 }
 
+void readDev() {
+  // Disable the ISR during handling
+  dev.attach(0);
+  dev.printf("Before\n");
+  // Note: you need to actually read from the serial to clear the RX interrupt
+  // Example command:
+  // {"setPointA":20, "setPointB":45, "kc":0.08, "ti":0.005, "td":0.0}
+  string holder;
+  cJSON *json;
+  // parameters list
+
+  char temp;
+  while(temp != '\n') {
+    temp = dev.getc();
+    holder += temp;
+  }
+  if (holder.length() < 10) return;
+
+  json = cJSON_Parse(holder.c_str());
+  if (!json) {
+    dev.printf("Error before: [%s]\n", cJSON_GetErrorPtr());
+  } else {
+    setPointA = cJSON_GetObjectItem(json, "setPointA")->valuedouble;
+    setPointB = cJSON_GetObjectItem(json, "setPointB")->valuedouble;
+    kc = cJSON_GetObjectItem(json, "kc")->valuedouble;
+    ti = cJSON_GetObjectItem(json, "ti")->valuedouble;
+    td = cJSON_GetObjectItem(json, "td")->valuedouble;
+    cJSON_Delete(json);
+  }
+
+  controllerA.setSetPoint(setPointA);
+  controllerA.setTunings(kc, ti, td);
+  controllerB.setSetPoint(setPointB);
+  controllerB.setTunings(kc, ti, td);
+  dev.printf("setPoints: %3.1f'C %f3.1'C\n", setPointA, setPointB);
+  dev.printf("%s\n", holder.c_str());
+
+  dev.attach(&readDev);
+}
+
 // Function to convert ADC reading to actual temp reading
 double theta[3] = {1050.7, -4826, 5481.5};
 double readRTD(double x) {
@@ -117,8 +158,9 @@ int main() {
   double sumA = 0, sumB = 0;
   long int reading = 0;
 
-  ads.setGain(GAIN_TWO);
+  //ads.setGain(GAIN_TWO);
   pc.attach(&readPC);
+  dev.attach(&readDev);
 
   heaterA.period_ms(50);
   heaterB.period_ms(50);
@@ -199,6 +241,7 @@ int main() {
     //reading = ads.readADC_Differential_2_3();
     //printf("reading: %d\r\n", reading); // print reading
     printf("HeaterA: Temp: %3.1f 'C, PWM: %3.3f %%; HeaterB: Temp: %3.1f 'C, PWM: %3.3f %%;\n", tempA, outA*100, tempB, outB*100);
+    dev.printf("HeaterA: Temp: %3.1f 'C, PWM: %3.3f %%; HeaterB: Temp: %3.1f 'C, PWM: %3.3f %%;\n", tempA, outA*100, tempB, outB*100);
     //printf("Compute PWM A: %3.3f; B: %3.3f\n", outA, outB);
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));
     wait(RATE);

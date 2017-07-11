@@ -20,7 +20,7 @@ PixelArray px(WS2812_BUF);
 // NUCLEO_F401RE: 3, 12, 9, 12
 // NUCELO_F746ZG: 32, 105, 70, 123
 
-WS2812 ws(p5, 1, 2, 11, 10, 11);
+WS2812 ws(p5, 1, 3, 11, 10, 11);
 //WS2812 ws(p11, 1);
 //int colorbuf[4] = { 0x00000033, 0x0000FFFF, 0x0000FF00, 0x00001199}; //blue, orange, green, red
 int colorbuf[NUM_COLORS] = {0xff0000ff,0xffff0000,0xff00ff00,0xffffff00,0xffff8000,0xfff00fff};
@@ -48,10 +48,14 @@ AnalogIn tempReadA(p15);
 AnalogIn tempReadB(p16);
 
 //PWM pins
-// PwmOut heaterA(p21);
-// PwmOut heaterB(p22);
 PwmOut heaterA(p22);
 PwmOut heaterB(p21);
+
+// Interface pins
+InterruptIn limitSwitch(p23);
+
+// Timers
+Ticker isr;
 
 // DAC pin18
 //AnalogOut aout(p18);
@@ -69,6 +73,58 @@ Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
 double setPointA, setPointB, kc, ti, td;
+
+void onRedLight() {
+  ws.write(&colorbuf[1]);
+}
+
+void onBlueLight() {
+  ws.write(&colorbuf[0]);
+}
+
+void onGreenLight() {
+  ws.write(&colorbuf[2]);
+}
+
+void onOrangeLight() {
+  ws.write(&colorbuf[4]);
+}
+
+void offLight() {
+  ws.write(0x00000000);
+}
+
+void startProcess() {
+  printf("Limit Switch Triggered\n");
+}
+
+void isrProcess() {
+  printf("ISR Triggered\n");
+
+  // TODO: check status, and update LED
+
+  // if limitSwitch off,
+  // Standby mode, LED off, setPoint 20
+
+  // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch none-trigger
+  // heating mode, LED orange blink
+  //
+
+  // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch trigger
+  // warning mode, LED red, setPoint 20, need reset
+  // error flag
+
+  // if limitSwitch pos1 or pos2, and temperature === setPoint, and Limit Switch none-trigger
+  // ready mode, LED green
+  //
+
+  // if limitSwitch pos1 or pos2, and temperature === setPoint, and limit Switch triggering
+  // sealing mode,
+  // if timer not start yet, start timer(trigger by limit switch), LED green blink,
+  // if timer already start, check if timerout,
+  // if timer timeout, LED blue,
+
+}
 
 void readPC() {
   // Note: you need to actually read from the serial to clear the RX interrupt
@@ -158,9 +214,12 @@ int main() {
   double sumA = 0, sumB = 0;
   long int reading = 0;
 
+  // Attach ISR
   //ads.setGain(GAIN_TWO);
   pc.attach(&readPC);
   dev.attach(&readDev);
+  isr.attach(&isrProcess, 0.5);
+  limitSwitch.fall(&startProcess);
 
   heaterA.period_ms(50);
   heaterB.period_ms(50);
@@ -178,7 +237,17 @@ int main() {
   controllerA.setBias(0);
   controllerB.setMode(MANUAL_MODE);
 
+  offLight();
+
   while(1) {
+
+    // TODO: put the following in ISR
+    // use while loop to check the interface status
+
+    // Limit switch onChange, set setPoint
+    //
+    // Modify LED color inside ISR
+
     sumA = 0;
     sumB = 0;
     // Moving average
@@ -249,16 +318,5 @@ int main() {
     // Test WS2812
     //ws.useII(WS2812::GLOBAL);
     //ws.setII(0xAA);
-    ws.write(&colorbuf[0]);
-    wait(RATE);
-    ws.write(&colorbuf[1]);
-    wait(RATE);
-    ws.write(&colorbuf[2]);
-    wait(RATE);
-    ws.write(&colorbuf[3]);
-    wait(RATE);
-    ws.write(&colorbuf[4]);
-    wait(RATE);
-    ws.write(&colorbuf[5]);
   }
 }

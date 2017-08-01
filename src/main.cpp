@@ -51,6 +51,9 @@ AnalogIn tempReadB(p16);
 PwmOut heaterA(p22);
 PwmOut heaterB(p21);
 
+// Buzzer pin
+PwmOut buzzer(p26);
+
 // Interface pins
 InterruptIn limitSwitch(p23);
 
@@ -92,6 +95,15 @@ void onOrangeLight() {
 
 void offLight() {
   ws.write(0x00000000);
+}
+
+void onAlarm() {
+  buzzer.period_ms(1000);
+  buzzer.write(0.5f);
+}
+
+void offAlarm() {
+  buzzer.write(0);
 }
 
 void startProcess() {
@@ -314,6 +326,8 @@ int main() {
     //printf("Compute PWM A: %3.3f; B: %3.3f\n", outA, outB);
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));
     wait(RATE);
+
+    onAlarm();
 
     // Test WS2812
     //ws.useII(WS2812::GLOBAL);

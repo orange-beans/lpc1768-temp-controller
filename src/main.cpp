@@ -48,8 +48,8 @@ AnalogIn tempReadA(p15);
 AnalogIn tempReadB(p16);
 
 //PWM pins
-PwmOut heaterA(p22);
-PwmOut heaterB(p21);
+PwmOut heaterA(p21);
+PwmOut heaterB(p22);
 
 // Buzzer pin
 PwmOut buzzer(p26);
@@ -327,7 +327,7 @@ int main() {
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));
     wait(RATE);
 
-    onAlarm();
+    //onAlarm();
 
     // Test WS2812
     //ws.useII(WS2812::GLOBAL);

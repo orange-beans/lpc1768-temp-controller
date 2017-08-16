@@ -34,15 +34,18 @@ Serial dev(p28, p27, 9600);
 // Defines PID parameters
 //****************************************************************************/
 #define SAMPLES 5
-#define RATE  0.2
-#define Kc    0.65
-#define Ti    0.001
-#define Td    0.0
+#define RATE    0.2
+#define Kc_A    0.65
+#define Ti_A    0.001
+#define Td_A    0.0
+#define Kc_B    0.65
+#define Ti_B    0.001
+#define Td_B    0.0
 #define HIGH_FACTOR 3
 #define LOW_FACTOR 2
 
-PID controllerA(Kc, Ti, Td, RATE);
-PID controllerB(Kc, Ti, Td, RATE);
+PID controllerA(Kc_A, Ti_A, Td_A, RATE);
+PID controllerB(Kc_B, Ti_B, Td_B, RATE);
 //ADC pins
 AnalogIn tempReadA(p15);
 AnalogIn tempReadB(p16);
@@ -57,14 +60,14 @@ PwmOut buzzer(p26);
 // Interface pins
 InterruptIn limitSwitch(p23);
 
-// Timers
+// Ti_Amers
 Ticker isr;
 
 // DAC pin18
 //AnalogOut aout(p18);
 
-//Ticker flipper;
-//Ticker flipper2;
+//Ti_Acker flipper;
+//Ti_Acker flipper2;
 //PwmOut led1(LED1);
 //DigitalOut led1(LED1);
 //DigitalOut led2(LED2);
@@ -75,7 +78,7 @@ SawTooth sawTooth(p18, 0.5);
 Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
-double setPointA, setPointB, kc, ti, td;
+double setPointA, setPointB, kc_A, ti_A, td_A, kc_B, ti_B, td_B;
 
 void onRedLight() {
   ws.write(&colorbuf[1]);
@@ -111,7 +114,7 @@ void startProcess() {
 }
 
 void isrProcess() {
-  printf("ISR Triggered\n");
+  //printf("ISR Triggered\n");
 
   // TODO: check status, and update LED
 
@@ -159,16 +162,19 @@ void readPC() {
   } else {
     setPointA = cJSON_GetObjectItem(json, "setPointA")->valuedouble;
     setPointB = cJSON_GetObjectItem(json, "setPointB")->valuedouble;
-    kc = cJSON_GetObjectItem(json, "kc")->valuedouble;
-    ti = cJSON_GetObjectItem(json, "ti")->valuedouble;
-    td = cJSON_GetObjectItem(json, "td")->valuedouble;
+    kc_A = cJSON_GetObjectItem(json, "kc_A")->valuedouble;
+    ti_A = cJSON_GetObjectItem(json, "ti_A")->valuedouble;
+    td_A = cJSON_GetObjectItem(json, "td_A")->valuedouble;
+    kc_B = cJSON_GetObjectItem(json, "kc_B")->valuedouble;
+    ti_B = cJSON_GetObjectItem(json, "ti_B")->valuedouble;
+    td_B = cJSON_GetObjectItem(json, "td_B")->valuedouble;
     cJSON_Delete(json);
   }
 
   controllerA.setSetPoint(setPointA);
-  controllerA.setTunings(kc, ti, td);
+  controllerA.setTunings(kc_A, ti_A, td_A);
   controllerB.setSetPoint(setPointB);
-  controllerB.setTunings(kc, ti, td);
+  controllerB.setTunings(kc_B, ti_B, td_B);
   printf("setPoints: %3.1f'C %f3.1'C\n", setPointA, setPointB);
   printf("%s\n", holder.c_str());
 }
@@ -179,7 +185,7 @@ void readDev() {
   dev.printf("Before\n");
   // Note: you need to actually read from the serial to clear the RX interrupt
   // Example command:
-  // {"setPointA":20, "setPointB":45, "kc":0.08, "ti":0.005, "td":0.0}
+  // {"setPointA":20, "setPointB":45, "kc_A":0.08, "ti_A":0.005, "td_A":0.0, "kc_B":0.08, "ti_B":0.005, "td_B":0.0}
   string holder;
   cJSON *json;
   // parameters list
@@ -197,16 +203,19 @@ void readDev() {
   } else {
     setPointA = cJSON_GetObjectItem(json, "setPointA")->valuedouble;
     setPointB = cJSON_GetObjectItem(json, "setPointB")->valuedouble;
-    kc = cJSON_GetObjectItem(json, "kc")->valuedouble;
-    ti = cJSON_GetObjectItem(json, "ti")->valuedouble;
-    td = cJSON_GetObjectItem(json, "td")->valuedouble;
+    kc_A = cJSON_GetObjectItem(json, "kc_A")->valuedouble;
+    ti_A = cJSON_GetObjectItem(json, "ti_A")->valuedouble;
+    td_A = cJSON_GetObjectItem(json, "td_A")->valuedouble;
+    kc_B = cJSON_GetObjectItem(json, "kc_B")->valuedouble;
+    ti_B = cJSON_GetObjectItem(json, "ti_B")->valuedouble;
+    td_B = cJSON_GetObjectItem(json, "td_B")->valuedouble;
     cJSON_Delete(json);
   }
 
   controllerA.setSetPoint(setPointA);
-  controllerA.setTunings(kc, ti, td);
+  controllerA.setTunings(kc_A, ti_A, td_A);
   controllerB.setSetPoint(setPointB);
-  controllerB.setTunings(kc, ti, td);
+  controllerB.setTunings(kc_B, ti_B, td_B);
   dev.printf("setPoints: %3.1f'C %f3.1'C\n", setPointA, setPointB);
   dev.printf("%s\n", holder.c_str());
 

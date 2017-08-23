@@ -26,15 +26,15 @@ WS2812 ws(p5, 1, 3, 11, 10, 11);
 int colorbuf[NUM_COLORS] = {0xff0000ff,0xffff0000,0xff00ff00,0xffffff00,0xffff8000,0xfff00fff};
 
 //I2C i2c(p28, p27);
-Serial pc(USBTX, USBRX);
-Serial dev(p28, p27, 9600);
+Serial pc(USBTX, USBRX, 115200);
+Serial dev(p28, p27, 115200);
 //Adafruit_ADS1015 ads(&i2c);
 
 //****************************************************************************/
 // Defines PID parameters
 //****************************************************************************/
 #define SAMPLES 5
-#define RATE    0.2
+#define RATE    0.1
 #define Kc_A    0.65
 #define Ti_A    0.001
 #define Td_A    0.0

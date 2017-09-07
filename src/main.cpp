@@ -23,7 +23,8 @@ PixelArray px(WS2812_BUF);
 WS2812 ws(p5, 1, 3, 11, 10, 11);
 //WS2812 ws(p11, 1);
 //int colorbuf[4] = { 0x00000033, 0x0000FFFF, 0x0000FF00, 0x00001199}; //blue, orange, green, red
-int colorbuf[NUM_COLORS] = {0xff0000ff,0xffff0000,0xff00ff00,0xffffff00,0xffff8000,0xfff00fff};
+int colorbuf[4] = { 0xfff00fff, 0xffff00, 0xff00ff00, 0xff0000ff}; //blue, orange, green, red
+//int colorbuf[NUM_COLORS] = {0xff0000ff,0xffff0000,0xff00ff00,0xffffff00,0xffff8000,0xfff00fff};
 
 //I2C i2c(p28, p27);
 Serial pc(USBTX, USBRX, 115200);
@@ -81,7 +82,7 @@ Flasher led4(LED4, 2);
 double setPointA, setPointB, kc_A, ti_A, td_A, kc_B, ti_B, td_B;
 
 void onRedLight() {
-  ws.write(&colorbuf[1]);
+  ws.write(&colorbuf[3]);
 }
 
 void onBlueLight() {
@@ -93,7 +94,7 @@ void onGreenLight() {
 }
 
 void onOrangeLight() {
-  ws.write(&colorbuf[4]);
+  ws.write(&colorbuf[1]);
 }
 
 void offLight() {
@@ -239,7 +240,7 @@ int main() {
   //ads.setGain(GAIN_TWO);
   pc.attach(&readPC);
   dev.attach(&readDev);
-  isr.attach(&isrProcess, 0.5);
+  //isr.attach(&isrProcess, 0.5);
   limitSwitch.fall(&startProcess);
 
   heaterA.period_ms(50);
@@ -341,5 +342,17 @@ int main() {
     // Test WS2812
     //ws.useII(WS2812::GLOBAL);
     //ws.setII(0xAA);
+    printf("Red\n");
+    onRedLight();
+    wait(1);
+    printf("Green\n");
+    onGreenLight();
+    wait(1);
+    printf("Blue\n");
+    onBlueLight();
+    wait(1);
+    printf("Orange\n");
+    onOrangeLight();
+    wait(1);
   }
 }

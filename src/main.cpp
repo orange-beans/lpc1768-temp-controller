@@ -20,7 +20,7 @@ PixelArray px(WS2812_BUF);
 // NUCLEO_F401RE: 3, 12, 9, 12
 // NUCELO_F746ZG: 32, 105, 70, 123
 
-WS2812 ws(p5, 1, 3, 11, 10, 11);
+//WS2812 ws(p5, 1, 3, 11, 10, 11);
 //WS2812 ws(p11, 1);
 //int colorbuf[4] = { 0x00000033, 0x0000FFFF, 0x0000FF00, 0x00001199}; //blue, orange, green, red
 int colorbuf[4] = { 0xfff00fff, 0xffff00, 0xff00ff00, 0xff0000ff}; //blue, orange, green, red
@@ -30,6 +30,10 @@ int colorbuf[4] = { 0xfff00fff, 0xffff00, 0xff00ff00, 0xff0000ff}; //blue, orang
 Serial pc(USBTX, USBRX, 115200);
 Serial dev(p28, p27, 115200);
 //Adafruit_ADS1015 ads(&i2c);
+
+DigitalOut red_led(p5);
+DigitalOut blue_led(p6);
+DigitalOut green_led(p7);
 
 //****************************************************************************/
 // Defines PID parameters
@@ -81,24 +85,31 @@ Flasher led4(LED4, 2);
 
 double setPointA, setPointB, kc_A, ti_A, td_A, kc_B, ti_B, td_B;
 
+void offLight() {
+  red_led = 0;
+  blue_led = 0;
+  green_led = 0;
+}
+
 void onRedLight() {
-  ws.write(&colorbuf[3]);
+  offLight();
+  red_led = 1;
 }
 
 void onBlueLight() {
-  ws.write(&colorbuf[0]);
+  offLight();
+  blue_led = 1;
 }
 
 void onGreenLight() {
-  ws.write(&colorbuf[2]);
+  offLight();
+  green_led = 1;
 }
 
 void onOrangeLight() {
-  ws.write(&colorbuf[1]);
-}
-
-void offLight() {
-  ws.write(0x00000000);
+  offLight();
+  red_led = 1;
+  green_led = 1;
 }
 
 void onAlarm() {

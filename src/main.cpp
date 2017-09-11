@@ -123,6 +123,7 @@ void offAlarm() {
 
 void startProcess() {
   printf("Limit Switch Triggered\n");
+  dev.printf("Limit Switch Triggered\n");
 }
 
 void isrProcess() {
@@ -353,17 +354,17 @@ int main() {
     // Test WS2812
     //ws.useII(WS2812::GLOBAL);
     //ws.setII(0xAA);
-    printf("Red\n");
-    onRedLight();
-    wait(1);
-    printf("Green\n");
-    onGreenLight();
-    wait(1);
-    printf("Blue\n");
-    onBlueLight();
-    wait(1);
-    printf("Orange\n");
-    onOrangeLight();
-    wait(1);
+    // printf("Red\n");
+    // onRedLight();
+    // wait(1);
+    // printf("Green\n");
+    // onGreenLight();
+    // wait(1);
+    // printf("Blue\n");
+    // onBlueLight();
+    // wait(1);
+    // printf("Orange\n");
+    // onOrangeLight();
+    // wait(1);
   }
 }

@@ -20,17 +20,18 @@ PixelArray px(WS2812_BUF);
 // NUCLEO_F401RE: 3, 12, 9, 12
 // NUCELO_F746ZG: 32, 105, 70, 123
 
-//WS2812 ws(p5, 1, 3, 11, 10, 11);
-//WS2812 ws(p11, 1);
-//int colorbuf[4] = { 0x00000033, 0x0000FFFF, 0x0000FF00, 0x00001199}; //blue, orange, green, red
-int colorbuf[4] = { 0xfff00fff, 0xffff00, 0xff00ff00, 0xff0000ff}; //blue, orange, green, red
-//int colorbuf[NUM_COLORS] = {0xff0000ff,0xffff0000,0xff00ff00,0xffffff00,0xffff8000,0xfff00fff};
+int slider_position = 0;
+double setPointA = 110, setPointB = 90, kc_A, ti_A, td_A, kc_B, ti_B, td_B;
+double temperatureA, temperatureB, timerA = 58, timerB = 100, counterA = 0, counterB = 0;
+bool A_READY = false, B_READY = false, A_DONE = false, B_DONE = false, ERROR_FLAG = false;
 
 //I2C i2c(p28, p27);
 Serial pc(USBTX, USBRX, 115200);
 Serial dev(p28, p27, 115200);
 //Adafruit_ADS1015 ads(&i2c);
 
+DigitalIn  pos_1(p13);
+DigitalIn  pos_2(p14);
 DigitalOut red_led(p5);
 DigitalOut blue_led(p6);
 DigitalOut green_led(p7);
@@ -83,8 +84,6 @@ SawTooth sawTooth(p18, 0.5);
 Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
-double setPointA, setPointB, kc_A, ti_A, td_A, kc_B, ti_B, td_B;
-
 void offLight() {
   red_led = 0;
   blue_led = 0;
@@ -112,6 +111,14 @@ void onOrangeLight() {
   green_led = 1;
 }
 
+void toggleGreenLight() {
+  green_led = !green_led;
+}
+
+void toggleBlueLight() {
+  blue_led = !blue_led;
+}
+
 void onAlarm() {
   buzzer.period_ms(1000);
   buzzer.write(0.5f);
@@ -124,27 +131,116 @@ void offAlarm() {
 void startProcess() {
   printf("Limit Switch Triggered\n");
   dev.printf("Limit Switch Triggered\n");
+  counterA = 0;
+  counterB = 0;
+}
+
+void resetProcess() {
+  //printf("Reset Triggered\n");
+  offAlarm();
+  if (A_DONE == false || B_DONE == false) ERROR_FLAG = true;
+  A_DONE = false;
+  B_DONE = false;
 }
 
 void isrProcess() {
   //printf("ISR Triggered\n");
+  //printf("Slider Pos: %d\n", pos_1 + (pos_2 << 1));
+
+  slider_position = pos_1 + (pos_2 << 1);
+
+  counterA += 1;
+  counterB += 1;
 
   // TODO: check status, and update LED
+  switch (slider_position) {
+    // if slider switch off,
+    // Standby mode, LED off, setPoint 20
+    case 0:
+      offLight();
+      controllerA.setSetPoint(0);
+      controllerB.setSetPoint(0);
+      ERROR_FLAG = false;
+      break;
 
-  // if limitSwitch off,
-  // Standby mode, LED off, setPoint 20
+    case 1:
+      // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch none-trigger
+      // heating mode, LED orange blink
+      // if limitSwitch pos1 or pos2, and temperature === setPoint, and Limit Switch none-trigger
+      // ready mode, LED green
+      //
+      if (limitSwitch == 1) {
+        controllerA.setSetPoint(setPointA);
+        if ( abs(temperatureA - setPointA) > 3.5) {
+          toggleGreenLight();
+          A_READY = false;
+        }
+        else {
+          onGreenLight();
+          A_READY = true;
+        }
+      }
 
-  // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch none-trigger
-  // heating mode, LED orange blink
-  //
+      else {
+        controllerA.setSetPoint(0);
+        if (A_READY = false) {
+          ERROR_FLAG = true;
+        }
+        else {
+          toggleBlueLight();
+          if (counterA >= timerA) {
+            onBlueLight();
+            A_DONE = true;
+            A_READY = false;
+          }
+        }
+      }
+      break;
+
+    case 2:
+      // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch none-trigger
+      // heating mode, LED orange blink
+      // if limitSwitch pos1 or pos2, and temperature === setPoint, and Limit Switch none-trigger
+      // ready mode, LED green
+      //
+      if (limitSwitch == 1) {
+        controllerB.setSetPoint(setPointB);
+        if ( abs(temperatureB - setPointB) > 3.5) {
+          toggleGreenLight();
+          B_READY = false;
+        }
+        else {
+          onGreenLight();
+          B_READY = true;
+        }
+      }
+
+      else {
+        controllerB.setSetPoint(0);
+        if (B_READY = false) {
+          ERROR_FLAG = true;
+        }
+        else {
+          if (counterB >= timerB) {
+            onBlueLight();
+            onAlarm();
+            B_DONE = true;
+            B_READY = false;
+          }
+        }
+      }
+      break;
+
+    default:
+      offLight();
+      break;
+  }
+
 
   // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch trigger
   // warning mode, LED red, setPoint 20, need reset
   // error flag
 
-  // if limitSwitch pos1 or pos2, and temperature === setPoint, and Limit Switch none-trigger
-  // ready mode, LED green
-  //
 
   // if limitSwitch pos1 or pos2, and temperature === setPoint, and limit Switch triggering
   // sealing mode,
@@ -252,8 +348,9 @@ int main() {
   //ads.setGain(GAIN_TWO);
   pc.attach(&readPC);
   dev.attach(&readDev);
-  //isr.attach(&isrProcess, 0.5);
+  isr.attach(&isrProcess, 0.5);
   limitSwitch.fall(&startProcess);
+  limitSwitch.rise(&resetProcess);
 
   heaterA.period_ms(50);
   heaterB.period_ms(50);
@@ -311,6 +408,9 @@ int main() {
     //tempA = readRTD(sumA/10);
     //tempB = readRTD(sumB/10);
 
+    temperatureA = tempA;
+    temperatureB = tempB;
+
     //printf("Tube Sealer Temperature A: %3.4f'C\n", temp*3.3);
     //printf("normalized: 0x%04X \n", tempReadA.read_u16());
     controllerA.setProcessValue(tempA);
@@ -349,22 +449,14 @@ int main() {
     //printf("Tube Sealer Temperature B: %3.1f'C\n", readRTD(tempB));
     wait(RATE);
 
-    //onAlarm();
+    if (ERROR_FLAG == true) {
+      __disable_irq();
+      heaterA.write(0);
+      heaterB.write(0);
+      onRedLight();
+      while(1);
+    }
 
-    // Test WS2812
-    //ws.useII(WS2812::GLOBAL);
-    //ws.setII(0xAA);
-    // printf("Red\n");
-    // onRedLight();
-    // wait(1);
-    // printf("Green\n");
-    // onGreenLight();
-    // wait(1);
-    // printf("Blue\n");
-    // onBlueLight();
-    // wait(1);
-    // printf("Orange\n");
-    // onOrangeLight();
-    // wait(1);
+    //onAlarm();
   }
 }

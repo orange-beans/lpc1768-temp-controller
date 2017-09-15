@@ -21,9 +21,9 @@ PixelArray px(WS2812_BUF);
 // NUCELO_F746ZG: 32, 105, 70, 123
 
 int slider_position = 0;
-double setPointA = 110, setPointB = 90, kc_A, ti_A, td_A, kc_B, ti_B, td_B;
-double temperatureA, temperatureB, timerA = 58, timerB = 100, counterA = 0, counterB = 0;
-bool A_READY = false, B_READY = false, A_DONE = false, B_DONE = false, ERROR_FLAG = false;
+double setPointA = 110, setPointB = 110, kc_A, ti_A, td_A, kc_B, ti_B, td_B;
+double temperatureA, temperatureB, counterA = 0, counterB = 0;
+bool C_FLEX_READY = false, A_FLEX_READY = false, C_FLEX_DONE = false, A_FLEX_DONE = false, ERROR_FLAG = false;
 
 //I2C i2c(p28, p27);
 Serial pc(USBTX, USBRX, 115200);
@@ -37,6 +37,16 @@ DigitalOut blue_led(p6);
 DigitalOut green_led(p7);
 
 //****************************************************************************/
+// Defines Preset conditions
+//****************************************************************************/
+#define C_FLEX 1
+#define A_FLEX 2
+#define C_FLEX_SETPOINT 105
+#define C_FLEX_TIME 118
+#define A_FLEX_SETPOINT 115
+#define A_FLEX_TIME 236
+
+//****************************************************************************/
 // Defines PID parameters
 //****************************************************************************/
 #define SAMPLES 5
@@ -47,6 +57,9 @@ DigitalOut green_led(p7);
 #define Kc_B    0.65
 #define Ti_B    0.001
 #define Td_B    0.0
+// #define Kc_B    0.65
+// #define Ti_B    0.001
+// #define Td_B    0.0
 #define HIGH_FACTOR 3
 #define LOW_FACTOR 2
 
@@ -112,20 +125,51 @@ void onOrangeLight() {
 }
 
 void toggleGreenLight() {
+  blue_led = 0;
   green_led = !green_led;
 }
 
 void toggleBlueLight() {
+  green_led = 0;
   blue_led = !blue_led;
 }
 
 void onAlarm() {
-  buzzer.period_ms(1000);
+  buzzer.period_ms(100);
   buzzer.write(0.5f);
 }
 
 void offAlarm() {
   buzzer.write(0);
+}
+
+void onHeaters(int type) {
+  switch(type) {
+    case C_FLEX:
+      setPointA = C_FLEX_SETPOINT;
+      setPointB = C_FLEX_SETPOINT;
+      controllerA.setSetPoint(C_FLEX_SETPOINT);
+      controllerB.setSetPoint(C_FLEX_SETPOINT);
+      break;
+    case A_FLEX:
+      setPointA = A_FLEX_SETPOINT;
+      setPointB = A_FLEX_SETPOINT;
+      controllerA.setSetPoint(A_FLEX_SETPOINT);
+      controllerB.setSetPoint(A_FLEX_SETPOINT);
+      break;
+    default:
+      break;
+  }
+}
+
+void offHeaters() {
+  controllerA.setSetPoint(0);
+  controllerB.setSetPoint(0);
+}
+
+bool areHeatersReady(int type) {
+  if (type == C_FLEX) return abs(temperatureA - C_FLEX_SETPOINT) <= 2.5 && abs(temperatureB - C_FLEX_SETPOINT) <= 2.5;
+  if (type == A_FLEX) return abs(temperatureA - A_FLEX_SETPOINT) <= 2.5 && abs(temperatureB - A_FLEX_SETPOINT) <= 2.5;
 }
 
 void startProcess() {
@@ -136,16 +180,19 @@ void startProcess() {
 }
 
 void resetProcess() {
-  //printf("Reset Triggered\n");
+  printf("Reset Triggered\n");
   offAlarm();
-  if (A_DONE == false || B_DONE == false) ERROR_FLAG = true;
-  A_DONE = false;
-  B_DONE = false;
+  if ( (C_FLEX_READY == true && C_FLEX_DONE == false) || (A_FLEX_READY == true && A_FLEX_DONE == false)) ERROR_FLAG = true;
+
+  C_FLEX_READY = false;
+  C_FLEX_DONE = false;
+  A_FLEX_READY = false;
+  A_FLEX_DONE = false;
 }
 
 void isrProcess() {
   //printf("ISR Triggered\n");
-  //printf("Slider Pos: %d\n", pos_1 + (pos_2 << 1));
+  printf("Slider Pos: %d\n", pos_1 + (pos_2 << 1));
 
   slider_position = pos_1 + (pos_2 << 1);
 
@@ -156,45 +203,14 @@ void isrProcess() {
   switch (slider_position) {
     // if slider switch off,
     // Standby mode, LED off, setPoint 20
-    case 0:
+    case 3:
       offLight();
-      controllerA.setSetPoint(0);
-      controllerB.setSetPoint(0);
+      offHeaters();
       ERROR_FLAG = false;
-      break;
-
-    case 1:
-      // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch none-trigger
-      // heating mode, LED orange blink
-      // if limitSwitch pos1 or pos2, and temperature === setPoint, and Limit Switch none-trigger
-      // ready mode, LED green
-      //
-      if (limitSwitch == 1) {
-        controllerA.setSetPoint(setPointA);
-        if ( abs(temperatureA - setPointA) > 3.5) {
-          toggleGreenLight();
-          A_READY = false;
-        }
-        else {
-          onGreenLight();
-          A_READY = true;
-        }
-      }
-
-      else {
-        controllerA.setSetPoint(0);
-        if (A_READY = false) {
-          ERROR_FLAG = true;
-        }
-        else {
-          toggleBlueLight();
-          if (counterA >= timerA) {
-            onBlueLight();
-            A_DONE = true;
-            A_READY = false;
-          }
-        }
-      }
+      C_FLEX_READY = false;
+      C_FLEX_DONE = false;
+      A_FLEX_READY = false;
+      A_FLEX_DONE = false;
       break;
 
     case 2:
@@ -204,28 +220,57 @@ void isrProcess() {
       // ready mode, LED green
       //
       if (limitSwitch == 1) {
-        controllerB.setSetPoint(setPointB);
-        if ( abs(temperatureB - setPointB) > 3.5) {
+        onHeaters(C_FLEX);
+        if (areHeatersReady(C_FLEX) == false && C_FLEX_READY == false) {
           toggleGreenLight();
-          B_READY = false;
+          C_FLEX_READY = false;
         }
         else {
           onGreenLight();
-          B_READY = true;
+          C_FLEX_READY = true;
         }
       }
 
       else {
-        controllerB.setSetPoint(0);
-        if (B_READY = false) {
+        offHeaters();
+        if (C_FLEX_READY == false) {
           ERROR_FLAG = true;
         }
         else {
-          if (counterB >= timerB) {
+          toggleBlueLight();
+          if (counterA >= C_FLEX_TIME) {
             onBlueLight();
             onAlarm();
-            B_DONE = true;
-            B_READY = false;
+            C_FLEX_DONE = true;
+          }
+        }
+      }
+      break;
+
+    case 1:
+      if (limitSwitch == 1) {
+        onHeaters(A_FLEX);
+        if (areHeatersReady(A_FLEX) == false && A_FLEX_READY == false) {
+          toggleGreenLight();
+          A_FLEX_READY = false;
+        }
+        else {
+          onGreenLight();
+          A_FLEX_READY = true;
+        }
+      }
+
+      else {
+        offHeaters();
+        if (A_FLEX_READY == false) {
+          ERROR_FLAG = true;
+        }
+        else {
+          toggleBlueLight();
+          if (counterA >= A_FLEX_TIME) {
+            onBlueLight();
+            onAlarm();
+            A_FLEX_DONE = true;
           }
         }
       }
@@ -235,19 +280,6 @@ void isrProcess() {
       offLight();
       break;
   }
-
-
-  // if limitSwitch pos1 or pos2, and temperature !== setPoint, and Limit Switch trigger
-  // warning mode, LED red, setPoint 20, need reset
-  // error flag
-
-
-  // if limitSwitch pos1 or pos2, and temperature === setPoint, and limit Switch triggering
-  // sealing mode,
-  // if timer not start yet, start timer(trigger by limit switch), LED green blink,
-  // if timer already start, check if timerout,
-  // if timer timeout, LED blue,
-
 }
 
 void readPC() {
@@ -348,7 +380,7 @@ int main() {
   //ads.setGain(GAIN_TWO);
   pc.attach(&readPC);
   dev.attach(&readDev);
-  isr.attach(&isrProcess, 0.5);
+  isr.attach(&isrProcess, 0.25);
   limitSwitch.fall(&startProcess);
   limitSwitch.rise(&resetProcess);
 
@@ -451,10 +483,15 @@ int main() {
 
     if (ERROR_FLAG == true) {
       __disable_irq();
-      heaterA.write(0);
-      heaterB.write(0);
+      onAlarm();
+      offHeaters();
       onRedLight();
-      while(1);
+      while(slider_position != 3) {
+        slider_position = pos_1 + (pos_2 << 1);
+      };
+      ERROR_FLAG = false;
+      offAlarm();
+      __enable_irq();
     }
 
     //onAlarm();

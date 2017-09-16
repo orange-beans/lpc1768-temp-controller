@@ -46,6 +46,8 @@ DigitalOut green_led(p7);
 #define A_FLEX_SETPOINT 115
 #define A_FLEX_TIME 236
 
+#define M_FLEX 255
+
 //****************************************************************************/
 // Defines PID parameters
 //****************************************************************************/
@@ -157,6 +159,10 @@ void onHeaters(int type) {
       controllerA.setSetPoint(setPointA);
       controllerB.setSetPoint(setPointB);
       break;
+    case M_FLEX:
+      controllerA.setSetPoint(setPointA);
+      controllerB.setSetPoint(setPointB);
+      break;
     default:
       break;
   }
@@ -204,13 +210,15 @@ void isrProcess() {
     // if slider switch off,
     // Standby mode, LED off, setPoint 20
     case 3:
-      offLight();
-      offHeaters();
-      ERROR_FLAG = false;
-      C_FLEX_READY = false;
-      C_FLEX_DONE = false;
-      A_FLEX_READY = false;
-      A_FLEX_DONE = false;
+      // TEMP REMOVE
+      // offLight();
+      // offHeaters();
+      // ERROR_FLAG = false;
+      // C_FLEX_READY = false;
+      // C_FLEX_DONE = false;
+      // A_FLEX_READY = false;
+      // A_FLEX_DONE = false;
+      onHeaters(M_FLEX);
       break;
 
     case 2:

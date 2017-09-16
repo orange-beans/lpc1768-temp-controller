@@ -60,7 +60,7 @@ DigitalOut green_led(p7);
 // #define Kc_B    0.65
 // #define Ti_B    0.001
 // #define Td_B    0.0
-#define HIGH_FACTOR 3
+#define HIGH_FACTOR 4
 #define LOW_FACTOR 2
 
 PID controllerA(Kc_A, Ti_A, Td_A, RATE);
@@ -148,14 +148,14 @@ void onHeaters(int type) {
     case C_FLEX:
       setPointA = C_FLEX_SETPOINT;
       setPointB = C_FLEX_SETPOINT;
-      controllerA.setSetPoint(C_FLEX_SETPOINT);
-      controllerB.setSetPoint(C_FLEX_SETPOINT);
+      controllerA.setSetPoint(setPointA);
+      controllerB.setSetPoint(setPointB);
       break;
     case A_FLEX:
       setPointA = A_FLEX_SETPOINT;
       setPointB = A_FLEX_SETPOINT;
-      controllerA.setSetPoint(A_FLEX_SETPOINT);
-      controllerB.setSetPoint(A_FLEX_SETPOINT);
+      controllerA.setSetPoint(setPointA);
+      controllerB.setSetPoint(setPointB);
       break;
     default:
       break;
@@ -168,8 +168,8 @@ void offHeaters() {
 }
 
 bool areHeatersReady(int type) {
-  if (type == C_FLEX) return abs(temperatureA - C_FLEX_SETPOINT) <= 2.5 && abs(temperatureB - C_FLEX_SETPOINT) <= 2.5;
-  if (type == A_FLEX) return abs(temperatureA - A_FLEX_SETPOINT) <= 2.5 && abs(temperatureB - A_FLEX_SETPOINT) <= 2.5;
+  if (type == C_FLEX) return abs(temperatureA - setPointA) <= 2.5 && abs(temperatureB - setPointA) <= 2.5;
+  if (type == A_FLEX) return abs(temperatureA - setPointB) <= 2.5 && abs(temperatureB - setPointB) <= 2.5;
 }
 
 void startProcess() {

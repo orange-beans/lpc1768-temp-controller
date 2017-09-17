@@ -41,9 +41,9 @@ DigitalOut green_led(p7);
 //****************************************************************************/
 #define C_FLEX 1
 #define A_FLEX 2
-#define C_FLEX_SETPOINT 105
+#define C_FLEX_SETPOINT 110
 #define C_FLEX_TIME 118
-#define A_FLEX_SETPOINT 115
+#define A_FLEX_SETPOINT 120
 #define A_FLEX_TIME 236
 
 #define M_FLEX 255
@@ -53,11 +53,11 @@ DigitalOut green_led(p7);
 //****************************************************************************/
 #define SAMPLES 5
 #define RATE    0.1
-#define Kc_A    0.65
-#define Ti_A    0.001
+#define Kc_A    0.08
+#define Ti_A    0.01
 #define Td_A    0.0
-#define Kc_B    0.65
-#define Ti_B    0.001
+#define Kc_B    0.24
+#define Ti_B    0.1
 #define Td_B    0.0
 // #define Kc_B    0.65
 // #define Ti_B    0.001
@@ -211,14 +211,14 @@ void isrProcess() {
     // Standby mode, LED off, setPoint 20
     case 3:
       // TEMP REMOVE
-      // offLight();
-      // offHeaters();
-      // ERROR_FLAG = false;
-      // C_FLEX_READY = false;
-      // C_FLEX_DONE = false;
-      // A_FLEX_READY = false;
-      // A_FLEX_DONE = false;
-      onHeaters(M_FLEX);
+      offLight();
+      offHeaters();
+      ERROR_FLAG = false;
+      C_FLEX_READY = false;
+      C_FLEX_DONE = false;
+      A_FLEX_READY = false;
+      A_FLEX_DONE = false;
+      //onHeaters(M_FLEX);
       break;
 
     case 2:

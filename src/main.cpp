@@ -7,8 +7,8 @@
 #include <SawTooth.h>
 #include <PID.h>
 #include <WS2812.h>
-#include <PixelArray.h>
-#include <Adafruit_ADS1015.h>
+//#include <PixelArray.h>
+//#include <Adafruit_ADS1015.h>
 
 //****** Define Function Pins ******//
 DigitalOut led1(LED1);
@@ -25,6 +25,16 @@ PwmOut heaterB(p22);
 // Setup Serial Ports
 Serial pc(USBTX, USBRX, 115200);
 Serial dev(p28, p27, 115200);
+
+//****** Define User Variables ******//
+typedef struct {
+  float setpoint;
+  float kc;
+  float ti;
+  float td;
+} heater_setting_t;
+
+heater_setting_t heater_setting = { 25, 0.08, 0.01, 0.0 };
 
 //****** Define Threads ******//
 // Define threads
@@ -49,7 +59,7 @@ typedef struct {
 } mail_t;
 
 typedef struct {
-  int cmdStr;
+  char *cmdStr;
 } cmd_t;
 
 Mail<mail_t, 4> mail_box;
@@ -117,12 +127,14 @@ void displayHandle() {
     // Wait for mail to be avaliable;
     evt = mail_box.get();
     // Read mail
-    if (evt.status = osEventMail) {
+    if (evt.status == osEventMail) {
       received_mail = (mail_t*)evt.value.p;
-      printf("analog read is: %3.1f\r\n", received_mail->temperature);
-      printf("pwm setting is: %3.1f\r\n", received_mail->pwm);
       // Free memory
       mail_box.free(received_mail);
+
+      printf("analog read is: %3.1f\r\n", received_mail->temperature);
+      printf("pwm setting is: %3.1f\r\n", received_mail->pwm);
+      printf("heater setpoint is: %3.1f\r\n", heater_setting.setpoint);
     }
 
     led2 = !led2;
@@ -133,18 +145,24 @@ void displayHandle() {
 void commandHandle() {
   osEvent evt;
   cmd_t *received_cmd;
-  //string cmdStr;
-  int cmd;
+  cJSON *json;
+
   while(true) {
     //event.wait_all(COMMAND_S);
 
     evt = cmd_box.get();
-    if (evt.status = osEventMail) {
+    if (evt.status == osEventMail) {
       received_cmd = (cmd_t*)evt.value.p;
-      cmd = received_cmd->cmdStr;
       cmd_box.free(received_cmd);
-
-      printf("%d\n", cmd);
+      // Process command
+      json = cJSON_Parse(received_cmd->cmdStr);
+      if (!json) printf("Error before: [%s]\n", cJSON_GetErrorPtr());
+      else {
+        printf("%s\n", received_cmd->cmdStr);
+        heater_setting.setpoint = cJSON_GetObjectItem(json, "setpoint")->valuedouble;
+        // Must delete json object
+        cJSON_Delete(json);
+      }
     }
   }
 }
@@ -166,9 +184,9 @@ void commandISR() {
     holder += temp;
   }
 
-  printf("%s\n", holder.c_str());
+  //printf("%s\n", holder.c_str());
 
   cmd_t *sent_cmd = cmd_box.alloc();
-  sent_cmd->cmdStr = 666;
+  strcpy(sent_cmd->cmdStr, holder.c_str());
   cmd_box.put(sent_cmd);
 }

@@ -10,9 +10,7 @@
 #define SMALL_STACK_SIZE    1024
 #define MINI_SMALL_SIZE     512
 
-#define INTERVAL_1000MS   1000
-#define INTERVAL_500MS    500
-#define INTERVAL_200MS    200
-#define INTERVAL_100MS    100
+// This interval needs to be larger than MAX31855 poll interval
+#define REALTIME_INTERVAL   200
 
 #endif /* __MAIN_H */

@@ -7,6 +7,7 @@
 #include <SawTooth.h>
 #include <PID.h>
 #include <WS2812.h>
+#include <MAX31855.h>
 //#include <PixelArray.h>
 //#include <Adafruit_ADS1015.h>
 
@@ -25,6 +26,10 @@ PwmOut heaterB(p22);
 // Setup Serial Ports
 Serial pc(USBTX, USBRX, 115200);
 Serial dev(p28, p27, 115200);
+
+// Setup SPI
+SPI thermoSPI(p5, p6, p7);
+max31855 maxThermo(thermoSPI, p8);
 
 //****** Define User Variables ******//
 typedef struct {
@@ -73,13 +78,15 @@ EventFlags event;
 
 //****** Main ******//
 int main() {
+  // MAX31855 init
+  maxThermo.initialise();
   // ISR handlers
   pc.attach(&commandISR);
 
   // Create a queue with the default size
   EventQueue queue;
   //queue.call_in(2000, printf, "called in 2 seconds\n");
-  queue.call_every(INTERVAL_500MS, realtimeTick);
+  queue.call_every(REALTIME_INTERVAL, realtimeTick);
   //queue.call_every(1000, blink, "called every 1 seconds\n\r");
 
   // Start Threads
@@ -97,8 +104,8 @@ int main() {
 
 //****** Threads Callbacks ******//
 void realtimeHandle() {
-  double temperature = 0;
-  double pwm = 0;
+  float temperature = 0;
+  float pwm = 0;
   mail_t *sent_mail;
 
   while(true) {
@@ -106,10 +113,14 @@ void realtimeHandle() {
     event.wait_all(REALTIME_TICK_S);
 
     // 2.Read temperature
-    temperature = analogInA.read();
+    //temperature = analogInA.read();
+    if (maxThermo.ready() ==1) {
+      printf("MAX31855 Ready!\r\n");
+      temperature = maxThermo.read_temp();
+    }
 
     // 3.Calculate PWM
-    pwm = 10;
+    pwm = 10.0;
     printf("executing Realtime Staffs!\r\n");
 
     // 4.Send mail
@@ -123,17 +134,20 @@ void realtimeHandle() {
 void displayHandle() {
   osEvent evt;
   mail_t *received_mail;
+  float temperature, pwm;
   while(true) {
     // Wait for mail to be avaliable;
     evt = mail_box.get();
     // Read mail
     if (evt.status == osEventMail) {
       received_mail = (mail_t*)evt.value.p;
+      temperature = received_mail->temperature;
+      pwm = received_mail->pwm;
       // Free memory
+      // NOTE: need to process data before free, otherwise data may get corrupted
       mail_box.free(received_mail);
-
-      printf("analog read is: %3.1f\r\n", received_mail->temperature);
-      printf("pwm setting is: %3.1f\r\n", received_mail->pwm);
+      printf("temperature read is: %3.2f\r\n", temperature);
+      printf("pwm setting is: %3.1f\r\n", pwm);
       printf("heater setpoint is: %3.1f\r\n", heater_setting.setpoint);
     }
 

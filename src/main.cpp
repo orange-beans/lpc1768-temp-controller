@@ -11,6 +11,16 @@
 //#include <PixelArray.h>
 //#include <Adafruit_ADS1015.h>
 
+//****** Define User Variables ******//
+typedef struct {
+  float setpoint;
+  float kc;
+  float ti;
+  float td;
+} heater_setting_t;
+
+heater_setting_t heater_setting = { 25, 0.08, 0.01, 0.0 };
+
 //****** Define Function Pins ******//
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
@@ -31,15 +41,8 @@ Serial dev(p28, p27, 115200);
 SPI thermoSPI(p5, p6, p7);
 max31855 maxThermo(thermoSPI, p8);
 
-//****** Define User Variables ******//
-typedef struct {
-  float setpoint;
-  float kc;
-  float ti;
-  float td;
-} heater_setting_t;
-
-heater_setting_t heater_setting = { 25, 0.08, 0.01, 0.0 };
+// Setup PID Controller
+PID controller(heater_setting.kc, heater_setting.ti, heater_setting.td, (float)REALTIME_INTERVAL/1000);
 
 //****** Define Threads ******//
 // Define threads
@@ -60,7 +63,7 @@ void commandISR();
 //****** Define Mails ******//
 typedef struct {
   float   temperature;
-  float   pwm;
+  float   output;
 } mail_t;
 
 typedef struct {
@@ -76,10 +79,26 @@ EventFlags event;
 //****** Define Queues ******//
 //EventQueue queue(32 * EVENTS_EVENT_SIZE);
 
-//****** Main ******//
-int main() {
+//****** System Init ******//
+void initSystem() {
   // MAX31855 init
   maxThermo.initialise();
+  // Heater init
+  heaterA.period_ms(50);
+  heaterB.period_ms(50);
+  // PID init
+  controller.setInputLimits(0.0, 120.0);
+  controller.setOutputLimits(0.0, 1.0);
+  controller.setSetPoint(20);
+  //controllerA.setBias(0.0);
+  controller.setMode(1);
+}
+
+//****** Main ******//
+int main() {
+  // Init System
+  initSystem();
+
   // ISR handlers
   pc.attach(&commandISR);
 
@@ -104,8 +123,7 @@ int main() {
 
 //****** Threads Callbacks ******//
 void realtimeHandle() {
-  float temperature = 0;
-  float pwm = 0;
+  float output = 0, temperature = 0;
   mail_t *sent_mail;
 
   while(true) {
@@ -120,13 +138,14 @@ void realtimeHandle() {
     }
 
     // 3.Calculate PWM
-    pwm = 10.0;
-    printf("executing Realtime Staffs!\r\n");
+    controller.setProcessValue(temperature);
+    output = controller.compute();
+    heaterA.write(output);
 
     // 4.Send mail
     sent_mail = mail_box.alloc();
     sent_mail->temperature = temperature;
-    sent_mail->pwm = pwm;
+    sent_mail->output = output;
     mail_box.put(sent_mail);
   }
 }
@@ -134,7 +153,7 @@ void realtimeHandle() {
 void displayHandle() {
   osEvent evt;
   mail_t *received_mail;
-  float temperature, pwm;
+  float temperature, output;
   while(true) {
     // Wait for mail to be avaliable;
     evt = mail_box.get();
@@ -142,17 +161,16 @@ void displayHandle() {
     if (evt.status == osEventMail) {
       received_mail = (mail_t*)evt.value.p;
       temperature = received_mail->temperature;
-      pwm = received_mail->pwm;
+      output = received_mail->output;
       // Free memory
       // NOTE: need to process data before free, otherwise data may get corrupted
       mail_box.free(received_mail);
       printf("temperature read is: %3.2f\r\n", temperature);
-      printf("pwm setting is: %3.1f\r\n", pwm);
+      printf("output setting is: %3.1f%%\r\n", output*100);
       printf("heater setpoint is: %3.1f\r\n", heater_setting.setpoint);
     }
 
     led2 = !led2;
-    //Thread::wait(1000);
   }
 }
 
@@ -171,13 +189,33 @@ void commandHandle() {
       // Process command
       json = cJSON_Parse(received_cmd->cmdStr);
       if (!json) printf("Error before: [%s]\n", cJSON_GetErrorPtr());
+
       else {
         printf("%s\n", received_cmd->cmdStr);
         cJSON *setpoint = cJSON_GetObjectItem(json, "setpoint");
+        cJSON *kc = cJSON_GetObjectItem(json, "kc");
+        cJSON *ti = cJSON_GetObjectItem(json, "ti");
+        cJSON *td = cJSON_GetObjectItem(json, "td");
+
         if (cJSON_IsNumber(setpoint)) {
           heater_setting.setpoint = setpoint->valuedouble;
-          printf("setpoint change to %3.2f\r\n", heater_setting.setpoint);
         }
+
+        if (cJSON_IsNumber(kc)) {
+          heater_setting.kc = kc->valuedouble;
+        }
+
+        if (cJSON_IsNumber(ti)) {
+          heater_setting.ti = ti->valuedouble;
+        }
+
+        if (cJSON_IsNumber(td)) {
+          heater_setting.td = td->valuedouble;
+        }
+
+        // Modify setpoint and tuning
+        controller.setSetPoint(heater_setting.setpoint);
+        controller.setTunings(heater_setting.kc, heater_setting.ti, heater_setting.td);
 
         // Must delete json object
         cJSON_Delete(json);
@@ -190,7 +228,6 @@ void realtimeTick() {
   led1 = !led1;
   event.set(REALTIME_TICK_S);
 }
-
 
 //****** ISR handles ******//
 void commandISR() {

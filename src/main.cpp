@@ -4,10 +4,11 @@
 #include <string>
 #include <cJSON.h>
 #include <Flasher.h>
-#include <SawTooth.h>
 #include <PID.h>
-#include <WS2812.h>
 #include <MAX31855.h>
+#include <Adafruit_SSD1306.h>
+//#include <WS2812.h>
+//#include <SawTooth.h>
 //#include <PixelArray.h>
 //#include <Adafruit_ADS1015.h>
 
@@ -35,11 +36,15 @@ PwmOut heaterB(p22);
 
 // Setup Serial Ports
 Serial pc(USBTX, USBRX, 115200);
-Serial dev(p28, p27, 115200);
+//Serial dev(p28, p27, 115200);
 
 // Setup SPI
 SPI thermoSPI(p5, p6, p7);
 max31855 maxThermo(thermoSPI, p8);
+
+// Setup I2C & OLED
+I2CPreInit gI2C(p9, p10);
+Adafruit_SSD1306_I2c gOled(gI2C, p26);
 
 // Setup PID Controller
 PID controller(heater_setting.kc, heater_setting.ti, heater_setting.td, (float)REALTIME_INTERVAL/1000);
@@ -92,6 +97,12 @@ void initSystem() {
   controller.setSetPoint(20);
   //controllerA.setBias(0.0);
   controller.setMode(1);
+
+
+  //gOled.clearDisplay();
+  //gOled.printf("%ux%u OLED Display\r\n", gOled.width(), gOled.height());
+  //gOled.display();
+  //gOled.invertDisplay(true);
 }
 
 //****** Main ******//
@@ -168,6 +179,13 @@ void displayHandle() {
       printf("temperature read is: %3.2f\r\n", temperature);
       printf("output setting is: %3.1f%%\r\n", output*100);
       printf("heater setpoint is: %3.1f\r\n", heater_setting.setpoint);
+
+      gOled.clearDisplay();
+      gOled.setTextCursor(0,0);
+      gOled.printf("setpoint is: %3.1f\r\n", heater_setting.setpoint);
+      gOled.printf("temperature: %3.2f'C\r\n", temperature);
+      gOled.printf("powerOutput: %3.1f%%\r\n", output*100);
+      gOled.display();
     }
 
     led2 = !led2;

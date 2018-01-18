@@ -13,4 +13,15 @@
 // This interval needs to be larger than MAX31855 poll interval
 #define REALTIME_INTERVAL   200
 
+// an I2C sub-class that provides a constructed default
+class I2CPreInit : public I2C
+{
+public:
+    I2CPreInit(PinName sda, PinName scl) : I2C(sda, scl)
+    {
+        frequency(400000);
+        start();
+    };
+};
+
 #endif /* __MAIN_H */

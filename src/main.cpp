@@ -173,7 +173,12 @@ void commandHandle() {
       if (!json) printf("Error before: [%s]\n", cJSON_GetErrorPtr());
       else {
         printf("%s\n", received_cmd->cmdStr);
-        heater_setting.setpoint = cJSON_GetObjectItem(json, "setpoint")->valuedouble;
+        cJSON *setpoint = cJSON_GetObjectItem(json, "setpoint");
+        if (cJSON_IsNumber(setpoint)) {
+          heater_setting.setpoint = setpoint->valuedouble;
+          printf("setpoint change to %3.2f\r\n", heater_setting.setpoint);
+        }
+
         // Must delete json object
         cJSON_Delete(json);
       }

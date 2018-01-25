@@ -5,8 +5,8 @@
 #include <cJSON.h>
 #include <Flasher.h>
 #include <PID.h>
-#include <MAX31855.h>
-#include <Adafruit_SSD1306.h>
+// #include <MAX31855.h>
+// #include <Adafruit_SSD1306.h>
 //#include <WS2812.h>
 //#include <SawTooth.h>
 //#include <PixelArray.h>
@@ -25,36 +25,37 @@ heater_setting_t heater_setting = { 25, 0.08, 0.01, 0.0 };
 //****** Define Function Pins ******//
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
+DigitalOut statusLED(p26);
 
 //ADC pins
 AnalogIn analogInA(p15);
 AnalogIn analogInB(p16);
 
 //PWM pins
-PwmOut heaterA(p21);
-PwmOut heaterB(p22);
+PwmOut heater(p21);
+PwmOut cooler(p22);
 
 // Setup Serial Ports
 Serial pc(USBTX, USBRX, 115200);
 //Serial dev(p28, p27, 115200);
 
 // Setup SPI
-SPI thermoSPI(p5, p6, p7);
-max31855 maxThermo(thermoSPI, p8);
+// SPI thermoSPI(p5, p6, p7);
+// max31855 maxThermo(thermoSPI, p8);
 
 // Setup I2C & OLED
-I2CPreInit gI2C(p9, p10);
-Adafruit_SSD1306_I2c gOled(gI2C, p26);
+// I2CPreInit gI2C(p9, p10);
+// Adafruit_SSD1306_I2c gOled(gI2C, p26);
 
 // Setup PID Controller
 PID controller(heater_setting.kc, heater_setting.ti, heater_setting.td, (float)REALTIME_INTERVAL/1000);
 
 //****** Define Threads ******//
 // Define threads
-Thread realtimeThread(osPriorityRealtime, OS_STACK_SIZE, NULL, NULL);
+Thread realtimeThread(osPriorityRealtime, MEDIUM_STACK_SIZE, NULL, NULL);
 //Thread operateThread(osPriorityAboveNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 Thread displayTread(osPriorityBelowNormal, MEDIUM_STACK_SIZE, NULL, NULL);
-Thread commandThread(osPriorityNormal, OS_STACK_SIZE, NULL, NULL);
+Thread commandThread(osPriorityNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 
 // Define threads functions
 void realtimeHandle();
@@ -84,13 +85,20 @@ EventFlags event;
 //****** Define Queues ******//
 //EventQueue queue(32 * EVENTS_EVENT_SIZE);
 
+//****** Local Helpers ******//
+// TODO: put into lib later
+double theta[3] = {1050.7, -4826, 5481.5};
+double readRTD(double x) {
+  return theta[0] + x*theta[1] + x*x*theta[2];
+}
+
 //****** System Init ******//
 void initSystem() {
   // MAX31855 init
-  maxThermo.initialise();
+  //maxThermo.initialise();
   // Heater init
-  heaterA.period_ms(50);
-  heaterB.period_ms(50);
+  heater.period_ms(50);
+  cooler.period_ms(50);
   // PID init
   controller.setInputLimits(0.0, 120.0);
   controller.setOutputLimits(0.0, 1.0);
@@ -142,18 +150,28 @@ void realtimeHandle() {
     event.wait_all(REALTIME_TICK_S);
 
     // 2.Read temperature
-    //temperature = analogInA.read();
-    if (maxThermo.ready() ==1) {
-      printf("MAX31855 Ready!\r\n");
-      temperature = maxThermo.read_temp();
-    }
+    // TODO: add moving average for reading
+    temperature = readRTD(analogInA.read());
+    // if (maxThermo.ready() ==1) {
+    //   printf("MAX31855 Ready!\r\n");
+    //   temperature = maxThermo.read_temp();
+    // }
 
     // 3.Calculate PWM
     controller.setProcessValue(temperature);
     output = controller.compute();
-    heaterA.write(output);
 
-    // 4.Send mail
+    // 4.Cooler control
+    // TODO: write as a dedicated function
+    if (temperature > heater_setting.setpoint) {
+      heater.write(0);
+      cooler.write(1.0);
+    } else {
+      heater.write(output);
+      cooler.write(0);
+    }
+
+    // 5.Send mail
     sent_mail = mail_box.alloc();
     sent_mail->temperature = temperature;
     sent_mail->output = output;
@@ -176,16 +194,16 @@ void displayHandle() {
       // Free memory
       // NOTE: need to process data before free, otherwise data may get corrupted
       mail_box.free(received_mail);
-      printf("temperature read is: %3.2f\r\n", temperature);
+      printf("temperature read is: %3.1f\r\n", temperature);
       printf("output setting is: %3.1f%%\r\n", output*100);
       printf("heater setpoint is: %3.1f\r\n", heater_setting.setpoint);
 
-      gOled.clearDisplay();
-      gOled.setTextCursor(0,0);
-      gOled.printf("setpoint is: %3.1f\r\n", heater_setting.setpoint);
-      gOled.printf("temperature: %3.2f'C\r\n", temperature);
-      gOled.printf("powerOutput: %3.1f%%\r\n", output*100);
-      gOled.display();
+      // gOled.clearDisplay();
+      // gOled.setTextCursor(0,0);
+      // gOled.printf("setpoint is: %3.1f\r\n", heater_setting.setpoint);
+      // gOled.printf("temperature: %3.2f'C\r\n", temperature);
+      // gOled.printf("powerOutput: %3.1f%%\r\n", output*100);
+      // gOled.display();
     }
 
     led2 = !led2;
@@ -244,6 +262,7 @@ void commandHandle() {
 
 void realtimeTick() {
   led1 = !led1;
+  statusLED = !statusLED;
   event.set(REALTIME_TICK_S);
 }
 

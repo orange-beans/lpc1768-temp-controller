@@ -22,10 +22,18 @@ typedef struct {
 
 heater_setting_t heater_setting = { 25, 0.08, 0.01, 0.0 };
 
+unsigned char BACKBONE_ADDRESS = 0x0000;
+
 //****** Define Function Pins ******//
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
 DigitalOut statusLED(p26);
+
+// ID reading
+DigitalIn ID_0(p8);
+DigitalIn ID_1(p7);
+DigitalIn ID_2(p6);
+DigitalIn ID_3(p5);
 
 //ADC pins
 AnalogIn analogInA(p15);
@@ -94,6 +102,9 @@ double readRTD(double x) {
 
 //****** System Init ******//
 void initSystem() {
+  // Read Address
+  BACKBONE_ADDRESS = ID_3.read() * 8 + ID_2.read() * 4 + ID_1.read() * 2 + ID_0.read();
+  printf("Device Address is 0x%04x\r\n", BACKBONE_ADDRESS);
   // MAX31855 init
   //maxThermo.initialise();
   // Heater init
@@ -105,7 +116,6 @@ void initSystem() {
   controller.setSetPoint(20);
   //controllerA.setBias(0.0);
   controller.setMode(1);
-
 
   //gOled.clearDisplay();
   //gOled.printf("%ux%u OLED Display\r\n", gOled.width(), gOled.height());
@@ -194,9 +204,9 @@ void displayHandle() {
       // Free memory
       // NOTE: need to process data before free, otherwise data may get corrupted
       mail_box.free(received_mail);
-      printf("temperature read is: %3.1f\r\n", temperature);
-      printf("output setting is: %3.1f%%\r\n", output*100);
-      printf("heater setpoint is: %3.1f\r\n", heater_setting.setpoint);
+      printf("0x%04x/temperature read is: %3.1f\r\n", BACKBONE_ADDRESS, temperature);
+      printf("0x%04x/output setting is: %3.1f%%\r\n", BACKBONE_ADDRESS, output*100);
+      printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
 
       // gOled.clearDisplay();
       // gOled.setTextCursor(0,0);
@@ -214,9 +224,12 @@ void commandHandle() {
   osEvent evt;
   cmd_t *received_cmd;
   cJSON *json;
+  unsigned char cmd_address = 0xffff;
 
   while(true) {
     //event.wait_all(COMMAND_S);
+    // reset cmd_address everytime
+    cmd_address = 0xffff;
 
     evt = cmd_box.get();
     if (evt.status == osEventMail) {
@@ -232,26 +245,34 @@ void commandHandle() {
         cJSON *kc = cJSON_GetObjectItem(json, "kc");
         cJSON *ti = cJSON_GetObjectItem(json, "ti");
         cJSON *td = cJSON_GetObjectItem(json, "td");
+        cJSON *address = cJSON_GetObjectItem(json, "address");
 
-        if (cJSON_IsNumber(setpoint)) {
-          heater_setting.setpoint = setpoint->valuedouble;
+        if (cJSON_IsNumber(address)) {
+          cmd_address = address->valueint;
         }
 
-        if (cJSON_IsNumber(kc)) {
-          heater_setting.kc = kc->valuedouble;
-        }
+        if (cmd_address == BACKBONE_ADDRESS) {
+          if (cJSON_IsNumber(setpoint)) {
+            heater_setting.setpoint = setpoint->valuedouble;
+          }
 
-        if (cJSON_IsNumber(ti)) {
-          heater_setting.ti = ti->valuedouble;
-        }
+          if (cJSON_IsNumber(kc)) {
+            heater_setting.kc = kc->valuedouble;
+          }
 
-        if (cJSON_IsNumber(td)) {
-          heater_setting.td = td->valuedouble;
-        }
+          if (cJSON_IsNumber(ti)) {
+            heater_setting.ti = ti->valuedouble;
+          }
 
-        // Modify setpoint and tuning
-        controller.setSetPoint(heater_setting.setpoint);
-        controller.setTunings(heater_setting.kc, heater_setting.ti, heater_setting.td);
+          if (cJSON_IsNumber(td)) {
+            heater_setting.td = td->valuedouble;
+          }
+          // Only execute if cmd address match
+
+          // Modify setpoint and tuning
+          controller.setSetPoint(heater_setting.setpoint);
+          controller.setTunings(heater_setting.kc, heater_setting.ti, heater_setting.td);
+        }
 
         // Must delete json object
         cJSON_Delete(json);

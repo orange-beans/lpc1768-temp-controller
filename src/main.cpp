@@ -23,6 +23,7 @@ typedef struct {
 heater_setting_t heater_setting = { 25, 0.08, 0.01, 0.0 };
 
 unsigned char BACKBONE_ADDRESS = 0x0000;
+unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 
 //****** Define Function Pins ******//
 DigitalOut led1(LED1);
@@ -153,6 +154,7 @@ int main() {
 //****** Threads Callbacks ******//
 void realtimeHandle() {
   float output = 0, temperature = 0;
+  unsigned char counter = 0;
   mail_t *sent_mail;
 
   while(true) {
@@ -181,11 +183,15 @@ void realtimeHandle() {
       cooler.write(0);
     }
 
-    // 5.Send mail
-    sent_mail = mail_box.alloc();
-    sent_mail->temperature = temperature;
-    sent_mail->output = output;
-    mail_box.put(sent_mail);
+    // 5.Send mail after every COUNT_LIMIT counts
+    counter += 1;
+    if (counter >= COUNT_LIMIT) {
+      counter = 0;
+      sent_mail = mail_box.alloc();
+      sent_mail->temperature = temperature;
+      sent_mail->output = output;
+      mail_box.put(sent_mail);
+    }
   }
 }
 
@@ -204,9 +210,11 @@ void displayHandle() {
       // Free memory
       // NOTE: need to process data before free, otherwise data may get corrupted
       mail_box.free(received_mail);
-      printf("0x%04x/temperature read is: %3.1f\r\n", BACKBONE_ADDRESS, temperature);
-      printf("0x%04x/output setting is: %3.1f%%\r\n", BACKBONE_ADDRESS, output*100);
-      printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
+      // printf("0x%04x/temperature read is: %3.1f\r\n", BACKBONE_ADDRESS, temperature);
+      // printf("0x%04x/output setting is: %3.1f%%\r\n", BACKBONE_ADDRESS, output*100);
+      // printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
+
+      printf("{\"address\":0x%04x, \"setpoint\":%3.1f, \"temperature\":%3.1f, \"output\":%3.1f%%}\r\n", BACKBONE_ADDRESS, heater_setting.setpoint, temperature, output*100);
 
       // gOled.clearDisplay();
       // gOled.setTextCursor(0,0);

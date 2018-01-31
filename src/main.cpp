@@ -214,7 +214,7 @@ void displayHandle() {
       // printf("0x%04x/output setting is: %3.1f%%\r\n", BACKBONE_ADDRESS, output*100);
       // printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
 
-      printf("{\"address\":\"0x%04x\", \"setpoint\":%3.1f, \"temperature\":%3.1f, \"output\":%3.1f%%}\r\n", BACKBONE_ADDRESS, heater_setting.setpoint, temperature, output*100);
+      printf("{\"address\":\"0x%04x\", \"setpoint\":%3.1f, \"temperature\":%3.1f, \"output\":\"%3.1f%%\"}\r\n", BACKBONE_ADDRESS, heater_setting.setpoint, temperature, output*100);
 
       // gOled.clearDisplay();
       // gOled.setTextCursor(0,0);

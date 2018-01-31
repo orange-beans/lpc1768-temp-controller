@@ -105,7 +105,7 @@ double readRTD(double x) {
 void initSystem() {
   // Read Address
   BACKBONE_ADDRESS = ID_3.read() * 8 + ID_2.read() * 4 + ID_1.read() * 2 + ID_0.read();
-  printf("Device Address is 0x%04x\r\n", BACKBONE_ADDRESS);
+  //printf("Device Address is 0x%04x\r\n", BACKBONE_ADDRESS);
   // MAX31855 init
   //maxThermo.initialise();
   // Heater init
@@ -214,7 +214,7 @@ void displayHandle() {
       // printf("0x%04x/output setting is: %3.1f%%\r\n", BACKBONE_ADDRESS, output*100);
       // printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
 
-      printf("{\"address\":0x%04x, \"setpoint\":%3.1f, \"temperature\":%3.1f, \"output\":%3.1f%%}\r\n", BACKBONE_ADDRESS, heater_setting.setpoint, temperature, output*100);
+      printf("{\"address\":\"0x%04x\", \"setpoint\":%3.1f, \"temperature\":%3.1f, \"output\":%3.1f%%}\r\n", BACKBONE_ADDRESS, heater_setting.setpoint, temperature, output*100);
 
       // gOled.clearDisplay();
       // gOled.setTextCursor(0,0);

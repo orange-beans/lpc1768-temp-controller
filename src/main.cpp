@@ -175,12 +175,22 @@ void realtimeHandle() {
 
     // 4.Cooler control
     // TODO: write as a dedicated function
-    if (temperature > heater_setting.setpoint) {
+    if (temperature - heater_setting.setpoint >= 0.9) {
       heater.write(0);
       cooler.write(1.0);
     } else {
       heater.write(output);
       cooler.write(0);
+    }
+
+    // Test with cycling
+    if (temperature >= 80 ) {
+      heater_setting.setpoint = 45;
+      controller.setSetPoint(45);
+    }
+    if (temperature <= 45 ) {
+      heater_setting.setpoint = 80;
+      controller.setSetPoint(80);
     }
 
     // 5.Send mail after every COUNT_LIMIT counts

@@ -13,6 +13,9 @@
 // This interval needs to be larger than MAX31855 poll interval
 #define REALTIME_INTERVAL   200
 
+#define ON 1
+#define OFF 0
+
 // an I2C sub-class that provides a constructed default
 class I2CPreInit : public I2C
 {

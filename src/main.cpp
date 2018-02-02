@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "mbed_events.h"
 #include "main.h"
+#include <stdlib.h>
 #include <string>
 #include <cJSON.h>
 #include <Flasher.h>
@@ -21,6 +22,19 @@ typedef struct {
 } heater_setting_t;
 
 heater_setting_t heater_setting = { 25, 0.08, 0.01, 0.0 };
+
+typedef struct {
+  unsigned int startFlag;
+  unsigned int riseFlag;
+  unsigned int counter;
+  unsigned int limit;
+  float peak;
+  float valley;
+  unsigned int peakHold;
+  unsigned int valleyHold;
+} cycling_setting_t;
+
+cycling_setting_t cycling_setting = { 0, 1, 0, 40, 80.0, 45.0, 5, 5 };
 
 unsigned char BACKBONE_ADDRESS = 0x0000;
 unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
@@ -124,6 +138,14 @@ void initSystem() {
   //gOled.invertDisplay(true);
 }
 
+void startCycling(float temperature) {
+
+}
+
+void stopCycling() {
+
+}
+
 //****** Main ******//
 int main() {
   // Init System
@@ -157,6 +179,9 @@ void realtimeHandle() {
   unsigned char counter = 0;
   mail_t *sent_mail;
 
+  // Temp
+  unsigned int holdCounter = 0;
+
   while(true) {
     // 1.Wait until timer tick
     event.wait_all(REALTIME_TICK_S);
@@ -169,28 +194,72 @@ void realtimeHandle() {
     //   temperature = maxThermo.read_temp();
     // }
 
-    // 3.Calculate PWM
-    controller.setProcessValue(temperature);
-    output = controller.compute();
+    // 2.1 check startFlag
+    if (cycling_setting.startFlag == ON) {
+      // execute control
 
-    // 4.Cooler control
-    // TODO: write as a dedicated function
-    if (temperature - heater_setting.setpoint >= 0.9) {
-      heater.write(0);
-      cooler.write(1.0);
+      // TODO write the following as dedicated function (only need temperature)
+      // 3.Calculate PWM
+      controller.setProcessValue(temperature);
+      output = controller.compute();
+
+      // 4.Cooler control
+      if (temperature - heater_setting.setpoint >= 0.9) {
+        heater.write(0);
+        cooler.write(1.0);
+      } else {
+        heater.write(output);
+        cooler.write(0);
+      }
+
+      // Test with cycling
+      if (cycling_setting.riseFlag == ON) {
+
+        heater_setting.setpoint = cycling_setting.peak;
+        controller.setSetPoint(cycling_setting.peak);
+
+        if (abs(temperature - cycling_setting.peak) < 0.75) {
+          // hold for some times
+          holdCounter += 1;
+          if (holdCounter >= (cycling_setting.peakHold * COUNT_LIMIT)) {
+            // update counter, count for 40 peaks
+            holdCounter = 0;
+            cycling_setting.riseFlag = OFF;
+          }
+        }
+
+      } else {
+
+        heater_setting.setpoint = cycling_setting.valley;
+        controller.setSetPoint(cycling_setting.valley);
+
+        if (abs(temperature - cycling_setting.valley) < 0.75) {
+          // hold for some times
+          holdCounter += 1;
+          if (holdCounter >= (cycling_setting.peakHold * COUNT_LIMIT)) {
+            // update counter, count for 40 peaks
+            holdCounter = 0;
+            cycling_setting.counter += 1;
+            cycling_setting.riseFlag = ON;
+          }
+        }
+      }
+
+      if (cycling_setting.counter == 40) {
+        cycling_setting.counter = 0;
+        cycling_setting.startFlag = OFF;
+        cycling_setting.riseFlag = ON;
+        heater.write(0);
+        cooler.write(0);
+      }
     } else {
-      heater.write(output);
+      // startFlag is false, turn off everything
+      holdCounter = 0;
+      output = 0;
+      cycling_setting.counter = 0;
+      cycling_setting.riseFlag = ON;
+      heater.write(0);
       cooler.write(0);
-    }
-
-    // Test with cycling
-    if (temperature >= 80 ) {
-      heater_setting.setpoint = 45;
-      controller.setSetPoint(45);
-    }
-    if (temperature <= 45 ) {
-      heater_setting.setpoint = 80;
-      controller.setSetPoint(80);
     }
 
     // 5.Send mail after every COUNT_LIMIT counts
@@ -224,7 +293,7 @@ void displayHandle() {
       // printf("0x%04x/output setting is: %3.1f%%\r\n", BACKBONE_ADDRESS, output*100);
       // printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
 
-      printf("{\"address\":\"0x%04x\", \"setpoint\":%3.1f, \"temperature\":%3.1f, \"output\":\"%3.1f%%\"}\r\n", BACKBONE_ADDRESS, heater_setting.setpoint, temperature, output*100);
+      printf("{\"address\":\"0x%04x\", \"setpoint\":%3.1f, \"temperature\":%3.1f, \"output\":\"%3.1f%%\", \"start\":\"%d\", \"counter\":%d }\r\n", BACKBONE_ADDRESS, heater_setting.setpoint, temperature, output*100, cycling_setting.startFlag, cycling_setting.counter);
 
       // gOled.clearDisplay();
       // gOled.setTextCursor(0,0);
@@ -264,12 +333,27 @@ void commandHandle() {
         cJSON *ti = cJSON_GetObjectItem(json, "ti");
         cJSON *td = cJSON_GetObjectItem(json, "td");
         cJSON *address = cJSON_GetObjectItem(json, "address");
+        cJSON *startFlag = cJSON_GetObjectItem(json, "startFlag");
+        cJSON *peakHold = cJSON_GetObjectItem(json, "peakHold");
+        cJSON *valleyHold = cJSON_GetObjectItem(json, "valleyHold");
 
         if (cJSON_IsNumber(address)) {
           cmd_address = address->valueint;
         }
 
         if (cmd_address == BACKBONE_ADDRESS) {
+          if(cJSON_IsNumber(peakHold)) {
+            cycling_setting.peakHold = peakHold->valueint;
+          }
+
+          if(cJSON_IsNumber(valleyHold)) {
+            cycling_setting.valleyHold = valleyHold->valueint;
+          }
+
+          if(cJSON_IsNumber(startFlag)) {
+            cycling_setting.startFlag = startFlag->valueint ? 1 : 0;
+          }
+
           if (cJSON_IsNumber(setpoint)) {
             heater_setting.setpoint = setpoint->valuedouble;
           }
